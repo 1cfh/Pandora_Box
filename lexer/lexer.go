@@ -1,7 +1,7 @@
 package lexer
 
 import (
-	"GolangBox_Monkey/token"
+	"Pandora_Box/token"
 )
 
 type Lexer struct {

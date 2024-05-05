@@ -1,11 +1,11 @@
-# Pandora_Box
+# 词法分析
 
-参考自猴书, 使用go语言编写的解释器
+![img.png](../img/img.png)
 
+词法分析器:
 
-## 词法分析
+1. Lexer结构体
 
-1. 词法分析器
 
 ```go
 package lexer
@@ -19,6 +19,24 @@ type Lexer struct {
 }
 ```
 
-2. REPL
+2. 词法单元
+
+```go
+package token
+
+type TokenType string
+
+type Token struct {
+Type    TokenType
+Literal string
+}
+
+```
+
+
+3. REPL
+
+REPL指Read-Eval-Print Loop(读取-求值-打印循环), 比较通俗的说法是控制台或交互模式.
+
 
 
