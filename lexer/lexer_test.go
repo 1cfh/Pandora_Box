@@ -37,7 +37,7 @@ const (
 `
 )
 
-// 将测试用例转化为词法单元
+// 测试用例对应的Token列表
 var (
 	test1 = []LexicalUnit{
 		{token.ASSIGN, "="},

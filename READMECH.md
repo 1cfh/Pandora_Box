@@ -52,4 +52,52 @@ type Lexer struct {
 
 2. REPL
 
+主要就是进行词法分析后, 将结果打印到标准输出即可
 
+```go
+package repl
+
+import (
+	"Pandora_Box/lexer"
+	"Pandora_Box/token"
+	"bufio"
+	"fmt"
+	"io"
+)
+
+// PROMPT prefix in each line
+const PROMPT = ">> "
+
+func Start(in io.Reader, out io.Writer) {
+	scanner := bufio.NewScanner(in)
+
+	for {
+		fmt.Fprintf(out, PROMPT) // PROMPT写入到标准输出流
+		scanned := scanner.Scan()
+		if !scanned {
+			return
+		}
+
+		line := scanner.Text()
+
+		fmt.Println(line)
+
+		l := lexer.New(line)
+
+		// 遍历所有的token
+		for tok := l.NextToken(); tok.Type != token.EOF; tok = l.NextToken() {
+			fmt.Fprintf(out, "%+v\n", tok)
+		}
+
+	}
+
+}
+
+```
+
+### Syntactic Analysis
+
+主要涉及的数据结构有
+
+
+拉普拉斯语法分析器

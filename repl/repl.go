@@ -8,19 +8,22 @@ import (
 	"io"
 )
 
+// PROMPT prefix in each line
 const PROMPT = ">> "
 
 func Start(in io.Reader, out io.Writer) {
 	scanner := bufio.NewScanner(in)
 
 	for {
-		fmt.Fprintf(out, PROMPT)
+		fmt.Fprintf(out, PROMPT) // PROMPT写入到标准输出流
 		scanned := scanner.Scan()
 		if !scanned {
 			return
 		}
 
 		line := scanner.Text()
+
+		fmt.Println(line)
 
 		l := lexer.New(line)
 
