@@ -38,6 +38,8 @@ var precedences = map[token.TokenType]int{
 	// 乘法和除法的词法单元
 	token.SLASH:    PRODUCT,
 	token.ASTERISK: PRODUCT,
+
+	token.LPAREN: CALL,
 }
 
 /*
@@ -73,27 +75,39 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.EXCLAMATION, p.parsePrefixExpression)
 	// 解析负号
 	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
+	// 解析TRUE
+	p.registerPrefix(token.TRUE, p.parseBoolean)
+	// 解析FALSE
+	p.registerPrefix(token.FALSE, p.parseBoolean)
+	// 解析LPAREN
+	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
+	// 解析IF
+	p.registerPrefix(token.IF, p.parseIfExpression)
+	// 解析FUNCTION
+	p.registerPrefix(token.FUNCTION, p.parseFunctionLiteral)
 
 	/* 为中缀表达式注册一个中缀解析函数 */
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
-	// 解析加号
+	// 解析 +
 	p.registerInfix(token.PLUS, p.parseInfixExpression)
-
+	// 解析 -
 	p.registerInfix(token.MINUS, p.parseInfixExpression)
-
+	// 解析 /
 	p.registerInfix(token.SLASH, p.parseInfixExpression)
-
+	// 解析 *
 	p.registerInfix(token.ASTERISK, p.parseInfixExpression)
-
-	p.registerInfix(token.ASTERISK, p.parseInfixExpression)
-
+	// 解析
+	// p.registerInfix(token.ASTERISK, p.parseInfixExpression)
+	// 解析 ==
 	p.registerInfix(token.EQ, p.parseInfixExpression)
-
+	// 解析 !=
 	p.registerInfix(token.NEQ, p.parseInfixExpression)
-
+	// 解析 <
 	p.registerInfix(token.LT, p.parseInfixExpression)
-
+	// 解析 >
 	p.registerInfix(token.GT, p.parseInfixExpression)
+	// 解析
+	p.registerInfix(token.LPAREN, p.parseCallExpression)
 
 	// 读取两个词法单元, 以设置curToken和peekToken
 	p.nextToken()
@@ -110,7 +124,7 @@ func (p *Parser) nextToken() {
 
 // ParseProgram **
 func (p *Parser) ParseProgram() *ast.Program {
-	program := &ast.Program{} // 创建一个指向ast.Program的指针
+	program := &ast.Program{} // 创建一个指向ast.Program的指针  (program为AST的根节点)
 	program.Statements = []ast.Statement{}
 
 	for p.curToken.Type != token.EOF {
@@ -194,11 +208,18 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 	}
 
 	// TODO: 检查赋值号和分号之间的东西
+	p.nextToken()
 
-	// 检查最后是否有分号
-	for !p.curTokenIs(token.SEMICOLON) {
+	stmt.Value = p.parseExpression(LOWEST)
+
+	if p.peekTokenIs(token.SEMICOLON) {
 		p.nextToken()
 	}
+
+	// 检查最后是否有分号
+	//for !p.curTokenIs(token.SEMICOLON) {
+	//	p.nextToken()
+	//}
 
 	return stmt
 }
@@ -210,6 +231,7 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 	p.nextToken()
 
 	// TODO: 检查Expression
+	stmt.ReturnValue = p.parseExpression(LOWEST)
 
 	// 检查是否有分号
 	for !p.curTokenIs(token.SEMICOLON) {
@@ -356,4 +378,179 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 	expression.Right = p.parseExpression(precedence) // 填充AST的右节点
 
 	return expression
+}
+
+func (p *Parser) parseBoolean() ast.Expression {
+	return &ast.Boolean{Token: p.curToken, Value: p.curTokenIs(token.TRUE)}
+}
+
+func (p *Parser) parseGroupedExpression() ast.Expression {
+	p.nextToken()
+
+	exp := p.parseExpression(LOWEST)
+
+	if !p.expectPeek(token.RPAREN) {
+		return nil
+	}
+
+	return exp
+}
+
+// parseIfExpression 检测if和if-else语句
+func (p *Parser) parseIfExpression() ast.Expression {
+	expression := &ast.IfExpression{
+		Token: p.curToken,
+	}
+
+	// 使用expectPeek检测是否满足if的语法规则
+
+	// 检测 (
+	if !p.expectPeek(token.LPAREN) {
+		return nil
+	}
+
+	// 解析if括号中的条件表达式
+	p.nextToken()
+	expression.Condition = p.parseExpression(LOWEST)
+
+	// 检测 )
+	if !p.expectPeek(token.RPAREN) {
+		return nil
+	}
+
+	// 检测 {
+	if !p.expectPeek(token.LBRACE) {
+		return nil
+	}
+
+	expression.Consequence = p.parseBlockStatement()
+
+	// 检测 else
+	if p.peekTokenIs(token.ELSE) {
+		p.nextToken()
+
+		if !p.expectPeek(token.LBRACE) {
+			return nil
+		}
+
+		expression.Alternative = p.parseBlockStatement()
+	}
+
+	return expression
+}
+
+func (p *Parser) parseBlockStatement() *ast.BlockStatement {
+	block := &ast.BlockStatement{
+		Token: p.curToken,
+	}
+	block.Statements = []ast.Statement{}
+
+	p.nextToken()
+
+	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
+		stmt := p.parseStatement()
+		if stmt != nil {
+			block.Statements = append(block.Statements, stmt)
+		}
+		p.nextToken()
+	}
+
+	return block
+}
+
+// parseFunctionLiteral 解析函数序列
+func (p *Parser) parseFunctionLiteral() ast.Expression {
+	lit := &ast.FunctionLiteral{
+		Token: p.curToken,
+	}
+
+	// 检测 (
+	if !p.expectPeek(token.LPAREN) {
+		return nil
+	}
+
+	lit.Parameters = p.parseFunctionParameters()
+
+	// 检测 {
+	if !p.expectPeek(token.LBRACE) {
+		return nil
+	}
+
+	// 函数体解析
+	lit.Body = p.parseBlockStatement()
+
+	return lit
+}
+
+// parseFunctionParameters 解析参数列表
+func (p *Parser) parseFunctionParameters() []*ast.Identifier {
+	identifiers := []*ast.Identifier{}
+
+	// 当参数列表为空时, 后移一个词法单元, 然后返回
+	if p.peekTokenIs(token.RPAREN) {
+		p.nextToken()
+		return identifiers
+	}
+
+	// 不为空时, cur和peek同时向后移动一个单元的token
+	p.nextToken()
+
+	// 第一个参数
+	ident := &ast.Identifier{
+		Token: p.curToken,
+		Value: p.curToken.Literal,
+	}
+
+	// 合并到总的形参列表中
+	identifiers = append(identifiers, ident)
+
+	// 遍历形参列表, 此处使用的是peekTokenIs检查是否还有逗号, 从而判断是否还有没有append的参数
+	// 不为空时, 解析参数列表, 以逗号为
+	for p.peekTokenIs(token.COMMA) {
+		p.nextToken()
+		p.nextToken()
+		ident := &ast.Identifier{
+			Token: p.curToken,
+			Value: p.curToken.Literal,
+		}
+		identifiers = append(identifiers, ident)
+	}
+
+	if !p.expectPeek(token.RPAREN) {
+		return nil
+	}
+
+	return identifiers
+}
+
+func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
+	exp := &ast.CallExpression{
+		Token:    p.curToken,
+		Function: function,
+	}
+	exp.Arguments = p.parseCallArguments()
+	return exp
+}
+
+func (p *Parser) parseCallArguments() []ast.Expression {
+	args := []ast.Expression{}
+
+	if p.peekTokenIs(token.RPAREN) {
+		p.nextToken()
+		return args
+	}
+
+	p.nextToken()
+	args = append(args, p.parseExpression(LOWEST))
+
+	for p.peekTokenIs(token.COMMA) {
+		p.nextToken()
+		p.nextToken()
+		args = append(args, p.parseExpression(LOWEST))
+	}
+
+	if !p.expectPeek(token.RPAREN) {
+		return nil
+	}
+	return args
 }
