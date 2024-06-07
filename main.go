@@ -13,9 +13,15 @@ const banner = `	██████╗  █████╗ ███╗   ██
 	██║     ██║  ██║██║ ╚████║██████╔╝╚██████╔╝██║  ██║██║  ██║███████╗██████╔╝╚██████╔╝██╔╝ ██╗
 	╚═╝     ╚═╝  ╚═╝╚═╝  ╚═══╝╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═════╝  ╚═════╝ ╚═╝  ╚═╝`
 
+const description = `
+	Hello! This is the Pandora_Box. Wish you happy! :)
+`
+
 func init() {
 	// banner
 	fmt.Println(banner)
+	// description
+	fmt.Println(description)
 }
 
 func main() {

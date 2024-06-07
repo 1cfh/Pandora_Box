@@ -3,6 +3,7 @@ package repl
 import (
 	"Pandora_Box/evaluator"
 	"Pandora_Box/lexer"
+	"Pandora_Box/object"
 	"Pandora_Box/parser"
 	"bufio"
 	"fmt"
@@ -14,10 +15,12 @@ const PROMPT = ">> "
 
 func Start(in io.Reader, out io.Writer) {
 	scanner := bufio.NewScanner(in)
+	env := object.NewEnv() // 当前执行时所有地方共用一个env
 
 	for {
 		fmt.Fprintf(out, PROMPT) // PROMPT写入到标准输出流
 		scanned := scanner.Scan()
+
 		if !scanned {
 			return
 		}
@@ -36,7 +39,7 @@ func Start(in io.Reader, out io.Writer) {
 			printParseErrors(out, p.Errors())
 		}
 
-		evaluated := evaluator.Eval(program)
+		evaluated := evaluator.Eval(program, env)
 
 		if evaluated != nil {
 			// before eval ast
