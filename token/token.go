@@ -44,6 +44,10 @@ const (
 	IF       = "IF"
 	ELSE     = "ELSE"
 	RETURN   = "RETURN"
+	STRING   = "STRING"
+
+	LBRACKET = "["
+	RBRACKET = "]"
 )
 
 // 源代码中的关键字 到 token中的映射
@@ -57,7 +61,7 @@ var keywords = map[string]TokenType{
 	"return": RETURN,
 }
 
-// 根据ident字符串寻找关键字
+// LookupIdent 根据ident字符串寻找关键字
 func LookupIdent(ident string) TokenType {
 	if tok, ok := keywords[ident]; ok {
 		return tok

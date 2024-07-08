@@ -35,6 +35,10 @@ const (
 	10 == 10;
 	10 != 9;
 `
+
+	input6 = `
+	[1, 2];
+`
 )
 
 // 测试用例对应的Token列表
@@ -142,10 +146,21 @@ var (
 		{token.SEMICOLON, ";"},
 		{token.EOF, ""},
 	}
+
+	test6 = []LexicalUnit{
+		{token.LBRACKET, "["},
+		{token.INT, "1"},
+		{token.COMMA, ","},
+		{token.INT, "2"},
+		{token.RBRACKET, "]"},
+		{token.SEMICOLON, ";"},
+		{token.EOF, ""},
+	}
 )
 
 func TestNextToken(t *testing.T) {
-	input := input5
+	input := input6
+	test := test6
 
 	// 测试样例中首先对如下关键字及运算符进行测试
 	//tests := []struct {
@@ -165,7 +180,7 @@ func TestNextToken(t *testing.T) {
 	// test the input string
 	list := New(input)
 	// i => index ; tt => TokenType
-	for i, tt := range test5 {
+	for i, tt := range test {
 		tok := list.NextToken()
 
 		// 同时检测type及其符号形式

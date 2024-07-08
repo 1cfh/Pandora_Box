@@ -44,6 +44,10 @@ func TestErrorHandling(t *testing.T) {
 		//	}`,
 		//	"unknown operator: BOOLEAN + BOOLEAN",
 		//},
+		{
+			`"Hello" - "World!"`,
+			"unknown operator: STRING - STRING",
+		},
 	}
 
 	for _, tt := range testsErr {
@@ -54,7 +58,7 @@ func TestErrorHandling(t *testing.T) {
 			t.Errorf("no error object returned. got=%T(%+v)", evaluated, evaluated)
 			continue
 		}
-		
+
 		if errObj.Message != tt.expectedMsg {
 			t.Errorf("wrong error message. expected=%q, got=%q", tt.expectedMsg, errObj.Message)
 		}

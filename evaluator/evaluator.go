@@ -89,7 +89,12 @@ func Eval(node ast.Node, env *object.Env) object.Object {
 		//
 		return evalFunction(function, args)
 
+	case *ast.StringLiteral:
+		return &object.String{
+			Value: node.String(),
+		}
 	}
+
 	return nil
 }
 
@@ -143,6 +148,8 @@ func evalInfixExpression(op string, left object.Object, right object.Object) obj
 		return evalIntegerInfixExpression(op, left, right)
 	case op == "!=":
 		return nativeBoolToBooleanObject(left != right)
+	case left.Type() == object.STRING_OBJ && right.Type() == object.STRING_OBJ:
+		return evalStringInfixExpression(op, left, right)
 	case left.Type() != right.Type():
 		return newError("type mismatch: %s %s %s", left.Type(), op, right.Type())
 	default:
@@ -274,11 +281,21 @@ func isError(obj object.Object) bool {
 
 // evalIdentifier 在交互模式中, 对于标识符直接打印
 func evalIdentifier(node *ast.Identifier, env *object.Env) object.Object {
+	// 从解析环境中查看是否有匹配的键值对
 	val, ok := env.Get(node.Value)
-	if !ok { // 没找到标识符
-		return newError("identifier not found: " + node.Value)
+
+	// 找到标识符直接返回
+	if ok {
+		return val
 	}
-	return val
+
+	// 获得内建函数
+	builtin, ok := builtins[node.Value]
+	if ok {
+		return builtin
+	}
+
+	return newError("identifier not found: " + node.Value)
 }
 
 // evalExpressions
@@ -301,16 +318,19 @@ func evalExpressions(exps []ast.Expression, env *object.Env) []object.Object {
 }
 
 func evalFunction(fn object.Object, args []object.Object) object.Object {
-	function, ok := fn.(*object.Function)
-	if !ok {
-		return newError("not a function: %s", fn.Type())
+	switch _fn := fn.(type) {
+	case *object.Function:
+		// 获得函数内部的一个新环境, 避免污染外部环境
+		extendedEnv := extendFunctionEnv(_fn, args)
+		// 执行函数体
+		evaluated := Eval(_fn.Body, extendedEnv)
+		// 如果是返回值类型, 剥出其中的Value字段
+		return unwrapRetVal(evaluated)
+	case *object.Builtin:
+		return _fn.Fn(args...)
+	default:
+		return newError("not a function: %s", _fn.Type())
 	}
-	// 获得函数内部的一个新环境, 避免污染外部环境
-	extendedEnv := extendFunctionEnv(function, args)
-	// 执行函数体
-	evaluated := Eval(function.Body, extendedEnv)
-	// 如果是返回值类型, 剥出其中的Value字段
-	return unwrapRetVal(evaluated)
 }
 
 func extendFunctionEnv(fn *object.Function, args []object.Object) *object.Env {
@@ -330,4 +350,31 @@ func unwrapRetVal(obj object.Object) object.Object {
 		return retVal.Value
 	}
 	return obj
+}
+
+func evalStringInfixExpression(op string, left object.Object, right object.Object) object.Object {
+	// 字符串运算的中缀表达式
+	leftVal := left.(*object.String).Value
+	rightVal := right.(*object.String).Value
+
+	// 根据运算符选取操作
+	switch op {
+	case "+":
+		// 还是得借助宿主语言的字符串拼接特性
+		return &object.String{
+			Value: leftVal + rightVal,
+		}
+	case "==":
+		return &object.Boolean{
+			Value: leftVal == rightVal,
+		}
+	case "!=":
+		return &object.Boolean{
+			Value: leftVal != rightVal,
+		}
+	default:
+		return newError("unknown operator: %s %s %s",
+			left.Type(), op, right.Type())
+	}
+
 }

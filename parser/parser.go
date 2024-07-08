@@ -19,6 +19,7 @@ const (
 	PRODUCT
 	PREFIX
 	CALL
+	INDEX
 )
 
 // 词法单元到优先级的映射
@@ -40,6 +41,8 @@ var precedences = map[token.TokenType]int{
 	token.ASTERISK: PRODUCT,
 
 	token.LPAREN: CALL,
+
+	token.LBRACKET: INDEX,
 }
 
 /*
@@ -85,6 +88,10 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.IF, p.parseIfExpression)
 	// 解析FUNCTION
 	p.registerPrefix(token.FUNCTION, p.parseFunctionLiteral)
+	// 解析STRING
+	p.registerPrefix(token.STRING, p.parseStringLiteral)
+	// 解析ArrayLiteral
+	p.registerPrefix(token.LBRACKET, p.parseArrayLiteral)
 
 	/* 为中缀表达式注册一个中缀解析函数 */
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
@@ -108,6 +115,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(token.GT, p.parseInfixExpression)
 	// 解析
 	p.registerInfix(token.LPAREN, p.parseCallExpression)
+	//
+	p.registerInfix(token.LBRACKET, p.parseIndexExpression)
 
 	// 读取两个词法单元, 以设置curToken和peekToken
 	p.nextToken()
@@ -160,13 +169,21 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	leftExp := prefix() // 执行解析函数
 
 	// 普拉特语法分析器核心
-	for !p.peekTokenIs(token.SEMICOLON) && precedence < p.peekPrecedence() {
-		infix := p.infixParseFns[p.peekToken.Type] // 取出中缀表达式的解析函数
-		if infix == nil {                          // 无中缀表达式, 则直接返回
+	/*
+		普拉特解析算法是一种自顶向下的解析算法
+	*/
+	for !p.peekTokenIs(token.SEMICOLON) && precedence < p.peekPrecedence() { // 查看当前是否遍历到
+		// 取出中缀表达式的解析函数
+		infix := p.infixParseFns[p.peekToken.Type]
+
+		// 无中缀表达式, 则直接返回
+		if infix == nil {
 			return leftExp
 		}
 
+		// 解析下一个token
 		p.nextToken()
+		// 使用中缀表达式进行解析
 		leftExp = infix(leftExp)
 		// 表达式: ((1+3) > 2;)
 	}
@@ -242,6 +259,7 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 }
 
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
+	// defer
 	stmt := &ast.ExpressionStatement{
 		Token: p.curToken,
 	}
@@ -553,4 +571,60 @@ func (p *Parser) parseCallArguments() []ast.Expression {
 		return nil
 	}
 	return args
+}
+
+func (p *Parser) parseStringLiteral() ast.Expression {
+	return &ast.StringLiteral{
+		Token: p.curToken,
+		Value: p.curToken.Literal,
+	}
+}
+
+func (p *Parser) parseArrayLiteral() ast.Expression {
+	array := &ast.ArrayLiteral{
+		Token: p.curToken,
+	}
+
+	array.Elements = p.parseExpressionList(token.RBRACKET)
+	return array
+}
+
+func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
+	var list []ast.Expression
+
+	if p.peekTokenIs(end) {
+		p.nextToken()
+		return list
+	}
+
+	p.nextToken()
+	list = append(list, p.parseExpression(LOWEST))
+
+	for p.peekTokenIs(token.COMMA) {
+		p.nextToken()
+		p.nextToken()
+		list = append(list, p.parseExpression(LOWEST))
+	}
+
+	if !p.expectPeek(end) {
+		return nil
+	}
+
+	return list
+}
+
+func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
+	exp := &ast.IndexExpression{
+		Token: p.curToken,
+		Left:  left,
+	}
+
+	p.nextToken()
+	exp.Index = p.parseExpression(LOWEST)
+
+	if !p.expectPeek(token.RBRACKET) {
+		return nil
+	}
+
+	return exp
 }

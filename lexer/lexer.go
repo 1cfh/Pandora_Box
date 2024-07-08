@@ -12,7 +12,7 @@ type Lexer struct {
 	// only support for the ascii char
 }
 
-// create a new lexer section
+// New create a new lexer section
 func New(input string) *Lexer {
 	l := &Lexer{input: input, readPosition: 0}
 	l.readChar()
@@ -90,6 +90,16 @@ func (l *Lexer) NextToken() token.Token {
 		tok.Literal = ""
 		tok.Type = token.EOF
 
+	case '"':
+		tok.Type = token.STRING
+		tok.Literal = l.readString()
+
+	case '[':
+		tok = newToken(token.LBRACKET, l.ch)
+
+	case ']':
+		tok = newToken(token.RBRACKET, l.ch)
+
 	default:
 		if isLetter(l.ch) {
 			tok.Literal = l.readIdentifier()          // 读取标识符
@@ -157,4 +167,15 @@ func (l *Lexer) peekChar() byte {
 	} else {
 		return l.input[l.readPosition]
 	}
+}
+
+func (l *Lexer) readString() string {
+	position := l.position + 1
+	for {
+		l.readChar()
+		if l.ch == '"' || l.ch == 0 {
+			break
+		}
+	}
+	return l.input[position:l.position]
 }
